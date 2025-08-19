@@ -1,0 +1,6 @@
+Pillow>=10.0.0
+# For AVIF support (optional but recommended)
+pillow-avif-plugin>=1.4.0
+# For WEBP support (usually included with Pillow)
+# For enhanced PNG optimization (optional)
+# pillow-simd  # Faster version of Pillow (optional, harder to install)
