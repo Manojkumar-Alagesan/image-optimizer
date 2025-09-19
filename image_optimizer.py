@@ -90,7 +90,7 @@ class ImageOptimizer:
                 print(f"Final size: {final_size_kb:.1f} KB")
                 print(f"Compression: {compression_ratio:.1f}% reduction")
                 
-                return str(output_path)
+                return {"success": True, "output_path": str(output_path), "final_size_kb": final_size_kb, "compression_ratio": compression_ratio}
                 
         except Exception as e:
             print(f"❌ Error processing {input_path}: {str(e)}")
@@ -196,7 +196,19 @@ class ImageOptimizer:
                 'optimize': True
             }
         
-        img.save(output_path, **save_kwargs)
+        try:
+            img.save(output_path, **save_kwargs)
+        except KeyError:
+            raise ValueError(f"Unsupported output format: {output_format}")
+        except OSError as e:
+            if "cannot write mode" in str(e).lower():
+                raise ValueError(f"Image mode incompatible with {output_format} format")
+            elif "permission denied" in str(e).lower():
+                raise PermissionError(f"Cannot write to output path: {output_path}")
+            else:
+                raise OSError(f"Failed to save image: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Unexpected error saving image: {str(e)}")
     
     def get_extension_for_format(self, format_name):
         """Get file extension for format"""

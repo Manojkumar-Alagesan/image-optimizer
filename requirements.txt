@@ -4,3 +4,6 @@ pillow-avif-plugin>=1.4.0
 # For WEBP support (usually included with Pillow)
 # For enhanced PNG optimization (optional)
 # pillow-simd  # Faster version of Pillow (optional, harder to install)
+
+# For creating standalone Mac application
+pyinstaller>=5.0.0

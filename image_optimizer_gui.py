@@ -141,15 +141,30 @@ class ImageOptimizerGUI:
     def select_folder(self):
         folder = filedialog.askdirectory(title="Select Folder with Images")
         if folder:
-            # Find all image files in folder
-            image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff']
-            folder_path = Path(folder)
-            
-            for ext in image_extensions:
-                self.input_files.extend(str(f) for f in folder_path.glob(f"*{ext}"))
-                self.input_files.extend(str(f) for f in folder_path.glob(f"*{ext.upper()}"))
-            
-            self.update_files_display()
+            try:
+                # Find all image files in folder
+                image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff']
+                folder_path = Path(folder)
+
+                initial_count = len(self.input_files)
+                for ext in image_extensions:
+                    self.input_files.extend(str(f) for f in folder_path.glob(f"*{ext}"))
+                    self.input_files.extend(str(f) for f in folder_path.glob(f"*{ext.upper()}"))
+
+                added_count = len(self.input_files) - initial_count
+                if added_count == 0:
+                    messagebox.showwarning("No Images Found",
+                                         f"No supported image files found in {folder}")
+                else:
+                    self.log_result(f"Added {added_count} images from folder")
+
+                self.update_files_display()
+            except PermissionError:
+                messagebox.showerror("Permission Error",
+                                   f"Cannot access folder: {folder}")
+            except Exception as e:
+                messagebox.showerror("Error",
+                                   f"Error reading folder: {str(e)}")
     
     def select_output_folder(self):
         folder = filedialog.askdirectory(title="Select Output Folder")
@@ -158,10 +173,23 @@ class ImageOptimizerGUI:
     
     def update_files_display(self):
         self.files_listbox.delete(0, tk.END)
+        valid_files = []
+
         for file in self.input_files:
-            filename = os.path.basename(file)
-            size_kb = os.path.getsize(file) / 1024
-            self.files_listbox.insert(tk.END, f"{filename} ({size_kb:.1f} KB)")
+            try:
+                if os.path.exists(file):
+                    filename = os.path.basename(file)
+                    size_kb = os.path.getsize(file) / 1024
+                    self.files_listbox.insert(tk.END, f"{filename} ({size_kb:.1f} KB)")
+                    valid_files.append(file)
+                else:
+                    self.log_result(f"⚠️ File not found: {os.path.basename(file)}")
+            except PermissionError:
+                self.log_result(f"⚠️ Cannot access: {os.path.basename(file)}")
+            except Exception as e:
+                self.log_result(f"⚠️ Error reading: {os.path.basename(file)} - {str(e)}")
+
+        self.input_files = valid_files
     
     def clear_all(self):
         self.input_files.clear()
@@ -187,19 +215,56 @@ class ImageOptimizerGUI:
         try:
             optimizer = ImageOptimizer()
             
-            # Prepare parameters
-            target_kb = float(self.target_size.get()) if self.target_size.get() else None
-            quality = int(self.quality.get()) if self.quality.get() else 85
-            max_w = int(self.max_width.get()) if self.max_width.get() else None
-            max_h = int(self.max_height.get()) if self.max_height.get() else None
+            # Prepare and validate parameters
+            try:
+                target_kb = float(self.target_size.get()) if self.target_size.get() else None
+                if target_kb is not None and target_kb <= 0:
+                    raise ValueError("Target size must be greater than 0")
+            except ValueError:
+                error_msg = "Invalid target size. Please enter a positive number."
+                self.log_result(f"❌ {error_msg}")
+                messagebox.showerror("Invalid Input", error_msg)
+                return
+
+            try:
+                quality = int(self.quality.get()) if self.quality.get() else 85
+                if not 1 <= quality <= 100:
+                    raise ValueError("Quality must be between 1 and 100")
+            except ValueError:
+                error_msg = "Invalid quality. Please enter a number between 1-100."
+                self.log_result(f"❌ {error_msg}")
+                messagebox.showerror("Invalid Input", error_msg)
+                return
+
+            try:
+                max_w = int(self.max_width.get()) if self.max_width.get() else None
+                if max_w is not None and max_w <= 0:
+                    raise ValueError("Width must be positive")
+            except ValueError:
+                error_msg = "Invalid max width. Please enter a positive number."
+                self.log_result(f"❌ {error_msg}")
+                messagebox.showerror("Invalid Input", error_msg)
+                return
+
+            try:
+                max_h = int(self.max_height.get()) if self.max_height.get() else None
+                if max_h is not None and max_h <= 0:
+                    raise ValueError("Height must be positive")
+            except ValueError:
+                error_msg = "Invalid max height. Please enter a positive number."
+                self.log_result(f"❌ {error_msg}")
+                messagebox.showerror("Invalid Input", error_msg)
+                return
             
             aspect_ratio = None
             if self.aspect_ratio.get():
                 try:
                     w, h = map(int, self.aspect_ratio.get().split(':'))
                     aspect_ratio = (w, h)
-                except:
-                    self.log_result("❌ Invalid aspect ratio format!")
+                except ValueError:
+                    error_msg = "Invalid aspect ratio format. Use format like '16:9' or '4:3'"
+                    self.log_result(f"❌ {error_msg}")
+                    messagebox.showerror("Invalid Input", error_msg)
                     return
             
             # Process each file
@@ -236,15 +301,33 @@ class ImageOptimizerGUI:
                     aspect_ratio=aspect_ratio
                 )
                 
-                if result:
-                    final_size = optimizer.get_file_size_kb(result)
+                if isinstance(result, dict) and "error" in result:
+                    # Handle specific error types
+                    error_type = result.get("type", "unknown")
+                    error_msg = result["error"]
+
+                    if error_type == "file_not_found":
+                        self.log_result(f"❌ File not found: {os.path.basename(input_file)}")
+                    elif error_type == "permission_denied":
+                        self.log_result(f"❌ Permission denied: {os.path.basename(input_file)}")
+                    elif error_type == "invalid_format":
+                        self.log_result(f"❌ Invalid/corrupted image: {os.path.basename(input_file)}")
+                    elif error_type == "memory_error":
+                        self.log_result(f"❌ Image too large: {os.path.basename(input_file)}")
+                    elif error_type == "invalid_parameters":
+                        self.log_result(f"❌ Invalid settings for: {os.path.basename(input_file)}")
+                    else:
+                        self.log_result(f"❌ {error_msg}")
+
+                elif isinstance(result, dict) and result.get("success"):
+                    final_size = result["final_size_kb"]
                     total_final_size += final_size
-                    compression = (1 - final_size/original_size) * 100
-                    
+                    compression = result["compression_ratio"]
+
                     self.log_result(f"✅ {original_size:.1f} KB → {final_size:.1f} KB ({compression:.1f}% reduction)")
                     successful += 1
                 else:
-                    self.log_result("❌ Failed to optimize")
+                    self.log_result(f"❌ Failed to optimize: {os.path.basename(input_file)}")
             
             # Summary
             total_compression = (1 - total_final_size/total_original_size) * 100 if total_original_size > 0 else 0
@@ -253,8 +336,22 @@ class ImageOptimizerGUI:
             self.log_result(f"Total size reduction: {total_original_size:.1f} KB → {total_final_size:.1f} KB")
             self.log_result(f"Overall compression: {total_compression:.1f}%")
             
+        except FileNotFoundError as e:
+            error_msg = "Output directory cannot be created or accessed."
+            self.log_result(f"❌ {error_msg}")
+            messagebox.showerror("File System Error", error_msg)
+        except PermissionError as e:
+            error_msg = "Permission denied. Check file/folder permissions."
+            self.log_result(f"❌ {error_msg}")
+            messagebox.showerror("Permission Error", error_msg)
+        except MemoryError as e:
+            error_msg = "Not enough memory to process images. Try smaller images or reduce quality."
+            self.log_result(f"❌ {error_msg}")
+            messagebox.showerror("Memory Error", error_msg)
         except Exception as e:
-            self.log_result(f"❌ Error: {str(e)}")
+            error_msg = f"Unexpected error: {str(e)}"
+            self.log_result(f"❌ {error_msg}")
+            messagebox.showerror("Unexpected Error", error_msg)
         finally:
             # Re-enable button and stop progress
             self.root.after(0, self.finish_optimization)
