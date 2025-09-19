@@ -5,11 +5,15 @@ from PIL import Image, ImageTk
 import threading
 from pathlib import Path
 
+# Note: Drag and drop functionality temporarily disabled due to compatibility issues
+# Users can use Browse buttons for file selection
+
 class ImageOptimizerGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Image Optimizer - Offline Compression Tool")
-        self.root.geometry("800x600")
+        self.root.geometry("900x700")
+        self.root.minsize(800, 600)
         
         # Variables
         self.input_files = []
@@ -44,21 +48,35 @@ class ImageOptimizerGUI:
         ttk.Button(file_frame, text="Browse Folder", 
                   command=self.select_folder).pack(side=tk.LEFT)
         
-        # Selected files display
-        self.files_listbox = tk.Listbox(main_frame, height=6)
-        self.files_listbox.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), 
-                               pady=(5, 15))
-        
+        # Instruction label for file selection
+        self.drop_label = ttk.Label(main_frame,
+                                   text="📁 Use Browse buttons to select images",
+                                   foreground="gray",
+                                   font=("", 10, "italic"))
+        self.drop_label.grid(row=2, column=0, columnspan=3, pady=5)
+
+        # Selected files display with explicit styling for PyInstaller compatibility
+        self.files_listbox = tk.Listbox(main_frame, height=6,
+                                       bg="white", fg="black",
+                                       selectbackground="#0078d4",
+                                       selectforeground="white",
+                                       relief="solid", bd=1,
+                                       font=("", 10))
+        self.files_listbox.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(5, 15))
+
+        # Enable keyboard shortcuts
+        self.setup_drag_drop()
+
         # Output folder
-        ttk.Label(main_frame, text="Output Folder:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Label(main_frame, text="Output Folder:").grid(row=4, column=0, sticky=tk.W, pady=5)
         ttk.Entry(main_frame, textvariable=self.output_folder, width=40).grid(
-            row=3, column=1, sticky=(tk.W, tk.E), pady=5)
-        ttk.Button(main_frame, text="Browse", 
-                  command=self.select_output_folder).grid(row=3, column=2, padx=(5, 0), pady=5)
-        
+            row=4, column=1, sticky=(tk.W, tk.E), pady=5)
+        ttk.Button(main_frame, text="Browse",
+                  command=self.select_output_folder).grid(row=4, column=2, padx=(5, 0), pady=5)
+
         # Compression settings
         settings_frame = ttk.LabelFrame(main_frame, text="Compression Settings", padding="10")
-        settings_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
+        settings_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
         
         # Target size
         ttk.Label(settings_frame, text="Target Size (KB):").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -79,7 +97,7 @@ class ImageOptimizerGUI:
         
         # Resize settings
         resize_frame = ttk.LabelFrame(main_frame, text="Resize Settings (Optional)", padding="10")
-        resize_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
+        resize_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
         
         # Max dimensions
         ttk.Label(resize_frame, text="Max Width:").grid(row=0, column=0, sticky=tk.W, pady=2)
@@ -99,32 +117,80 @@ class ImageOptimizerGUI:
         
         # Progress and buttons
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
-        
+        self.progress.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=15)
+
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=7, column=0, columnspan=3, pady=10)
-        
-        self.optimize_button = ttk.Button(button_frame, text="🚀 Optimize Images", 
+        button_frame.grid(row=8, column=0, columnspan=3, pady=10, sticky=(tk.W, tk.E))
+
+        self.optimize_button = ttk.Button(button_frame, text="🚀 Optimize Images",
                                          command=self.start_optimization)
-        self.optimize_button.pack(side=tk.LEFT, padx=(0, 10))
-        
-        ttk.Button(button_frame, text="Clear All", 
-                  command=self.clear_all).pack(side=tk.LEFT)
+        self.optimize_button.grid(row=0, column=0, padx=(0, 10), pady=5)
+
+        ttk.Button(button_frame, text="Clear All",
+                  command=self.clear_all).grid(row=0, column=1, pady=5)
         
         # Results area
         self.results_text = tk.Text(main_frame, height=8, wrap=tk.WORD)
-        self.results_text.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(15, 0))
-        
+        self.results_text.grid(row=9, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(15, 0))
+
         # Scrollbar for results
         scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.results_text.yview)
-        scrollbar.grid(row=8, column=3, sticky=(tk.N, tk.S))
+        scrollbar.grid(row=9, column=3, sticky=(tk.N, tk.S))
         self.results_text.configure(yscrollcommand=scrollbar.set)
         
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(8, weight=1)
+        main_frame.rowconfigure(9, weight=1)
+
+        # Configure button frame
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
+
+    def setup_drag_drop(self):
+        """Setup keyboard shortcuts and visual feedback"""
+        # Visual feedback when hovering over file list
+        self.files_listbox.bind('<Enter>', self.on_mouse_enter)
+        self.files_listbox.bind('<Leave>', self.on_mouse_leave)
+
+        # Add keyboard shortcuts for power users
+        self.root.bind('<Command-o>', lambda e: self.select_files())
+        self.root.bind('<Command-d>', lambda e: self.select_folder())
+
+        # Update the instruction label with shortcuts
+        self.drop_label.configure(text="📁 Use Browse buttons to select images | ⌘O (files) ⌘D (folder)")
+
+    def on_mouse_enter(self, event):
+        """Visual feedback when mouse enters listbox"""
+        self.files_listbox.configure(bg="#f8f9fa")
+        self.drop_label.configure(text="📁 Click Browse Files or Browse Folder to add images", foreground="#0066cc")
+
+    def on_mouse_leave(self, event):
+        """Reset visual feedback when mouse leaves"""
+        self.files_listbox.configure(bg="white")
+        self.drop_label.configure(text="📁 Use Browse buttons to select images | ⌘O (files) ⌘D (folder)", foreground="gray")
+
+    def is_image_file(self, file_path):
+        """Check if file is a supported image format"""
+        image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff']
+        return any(file_path.lower().endswith(ext) for ext in image_extensions)
+
+    def add_images_from_folder(self, folder_path):
+        """Add all images from a folder (used by drag & drop)"""
+        try:
+            image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff']
+            folder = Path(folder_path)
+
+            for ext in image_extensions:
+                for file_path in folder.glob(f"*{ext}"):
+                    if str(file_path) not in self.input_files:
+                        self.input_files.append(str(file_path))
+                for file_path in folder.glob(f"*{ext.upper()}"):
+                    if str(file_path) not in self.input_files:
+                        self.input_files.append(str(file_path))
+        except Exception as e:
+            self.log_result(f"⚠️ Error reading folder {folder_path}: {str(e)}")
     
     def select_files(self):
         files = filedialog.askopenfilenames(
@@ -155,8 +221,6 @@ class ImageOptimizerGUI:
                 if added_count == 0:
                     messagebox.showwarning("No Images Found",
                                          f"No supported image files found in {folder}")
-                else:
-                    self.log_result(f"Added {added_count} images from folder")
 
                 self.update_files_display()
             except PermissionError:
@@ -172,29 +236,54 @@ class ImageOptimizerGUI:
             self.output_folder.set(folder)
     
     def update_files_display(self):
-        self.files_listbox.delete(0, tk.END)
-        valid_files = []
+        """Update the file list display with forced refresh"""
+        try:
+            # Clear the listbox completely
+            self.files_listbox.delete(0, tk.END)
 
-        for file in self.input_files:
-            try:
-                if os.path.exists(file):
-                    filename = os.path.basename(file)
+            # Force background color refresh (PyInstaller fix)
+            self.files_listbox.configure(bg="white", fg="black")
+
+            # Add files with explicit refresh
+            for i, file in enumerate(self.input_files):
+                filename = os.path.basename(file)
+                try:
                     size_kb = os.path.getsize(file) / 1024
-                    self.files_listbox.insert(tk.END, f"{filename} ({size_kb:.1f} KB)")
-                    valid_files.append(file)
-                else:
-                    self.log_result(f"⚠️ File not found: {os.path.basename(file)}")
-            except PermissionError:
-                self.log_result(f"⚠️ Cannot access: {os.path.basename(file)}")
-            except Exception as e:
-                self.log_result(f"⚠️ Error reading: {os.path.basename(file)} - {str(e)}")
+                    display_text = f"{filename} ({size_kb:.1f} KB)"
+                except:
+                    display_text = filename
 
-        self.input_files = valid_files
+                self.files_listbox.insert(tk.END, display_text)
+
+                # Force update every few items to ensure visibility
+                if i % 5 == 0:
+                    self.files_listbox.update_idletasks()
+
+            # Final configuration and refresh
+            self.files_listbox.configure(selectmode=tk.SINGLE)
+            self.files_listbox.update_idletasks()
+            self.files_listbox.update()
+
+            # Update the instruction label
+            if len(self.input_files) == 0:
+                self.drop_label.configure(text="📁 Use Browse buttons to select images | ⌘O (files) ⌘D (folder)")
+            else:
+                self.drop_label.configure(text=f"📁 {len(self.input_files)} images selected | Add more or click Optimize")
+
+        except Exception as e:
+            print(f"Error updating files display: {e}")
+            # Fallback: just update the label
+            if len(self.input_files) == 0:
+                self.drop_label.configure(text="📁 Use Browse buttons to select images | ⌘O (files) ⌘D (folder)")
+            else:
+                self.drop_label.configure(text=f"📁 {len(self.input_files)} images selected | Add more or click Optimize")
     
     def clear_all(self):
+        """Clear all selected files and reset the interface"""
         self.input_files.clear()
         self.files_listbox.delete(0, tk.END)
         self.results_text.delete(1.0, tk.END)
+        self.drop_label.configure(text="📁 Use Browse buttons to select images | ⌘O (files) ⌘D (folder)")
     
     def start_optimization(self):
         if not self.input_files:

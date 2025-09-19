@@ -13,6 +13,7 @@ Online image compressors limit you to 400KB and require payment for smaller size
 - ✅ **Advanced formats** - WEBP, AVIF, and more
 - ✅ **Free forever** - No subscriptions or hidden costs
 - ✅ **Native Mac Silicon** - Optimized for M1/M2/M3 performance
+- ✅ **Easy file selection** - Browse Files and Browse Folder buttons for image selection
 
 ## 🚀 Quick Start
 
@@ -20,7 +21,7 @@ Online image compressors limit you to 400KB and require payment for smaller size
 1. **Download** the app from the releases or build it yourself
 2. **Copy** `ImageOptimizer.app` to your Applications folder
 3. **Right-click** → Open (first time only to bypass Gatekeeper)
-4. **Drag & drop** images or use the browse buttons
+4. **Select images** using the Browse Files or Browse Folder buttons
 
 ### Option 2: Python Development Version
 ```bash
@@ -140,11 +141,13 @@ python image_optimizer_gui.py
 ## 🔧 Advanced Usage
 
 ### GUI Interface
-1. **Select images** - Browse files or entire folders
+1. **Select images** - Use Browse Files button for individual images or Browse Folder for entire folders
 2. **Set parameters** - Target size, quality, dimensions
 3. **Choose format** - JPEG, PNG, WEBP, or AVIF
 4. **Process** - Click "Optimize Images" and watch progress
 5. **Review results** - See detailed compression stats
+
+**Note**: The Mac app uses file browser dialogs for image selection. Drag & drop is not supported in the current version.
 
 ### Command Line Options (Development)
 ```bash
