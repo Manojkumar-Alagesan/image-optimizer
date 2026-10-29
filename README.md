@@ -91,6 +91,15 @@ pip install -r requirements.txt
 python image_optimizer_gui.py
 ```
 
+**Manual build (without the script):**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pyinstaller image_optimizer.spec
+# Your app will be in dist/ImageOptimizer.app
+```
+
 **Developer Requirements:**
 - Python 3.7+ with tkinter support
 - Homebrew (for easy Python-tk installation)
@@ -203,6 +212,9 @@ xattr -cr /Applications/ImageOptimizer.app
 # Then right-click → Open
 ```
 
+**"App is damaged" error**
+- The app was downloaded and quarantined. Run: `xattr -cr /Applications/ImageOptimizer.app`
+
 ### Performance Issues
 **App seems slow on first launch**
 - First launch takes longer as macOS scans the app
@@ -270,7 +282,6 @@ MIT License - Free to use, modify, and distribute.
 ## 📞 Support
 
 - **Issues**: Report bugs via GitHub Issues
-- **Mac-specific help**: Check README_MAC.md
 - **Questions**: Check the documentation first
 - **Feature requests**: Open a GitHub Issue with enhancement label
 
